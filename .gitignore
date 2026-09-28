@@ -1,0 +1,21 @@
+# Local build products
+/build/
+*.dll
+*.exe
+*.exp
+*.lib
+*.obj
+*.pdb
+
+# Runtime and package artifacts
+*.log
+*.zip
+*.sha256
+/dist/
+/backups/
+
+# IDE state
+/.vs/
+/.vscode/
+*.user
+*.suo
