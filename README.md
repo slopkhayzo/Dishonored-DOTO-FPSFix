@@ -82,8 +82,7 @@ currently provide proxy chaining.
 
 ## Build from source
 
-Open a regular Command Prompt or Developer Command Prompt in the repository and
-run:
+Install Visual Studio 2022 or the current Visual Studio Build Tools with the Desktop development with C++ workload, then run from a Command Prompt:
 
 ```bat
 build-msvc.cmd
