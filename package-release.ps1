@@ -153,7 +153,7 @@ try {
     $pluginPayloadFiles = [ordered]@{
         'DOTOHighFPSFix.asi' = Join-Path $buildDirectory 'DOTOHighFPSFix.asi'
         'doto-high-fps-fix.ini' = Join-Path $repositoryDirectory 'doto-high-fps-fix.ini'
-        'README.md' = Join-Path $repositoryDirectory 'README.md'
+        'README.txt' = Join-Path $repositoryDirectory 'README.txt'
         'CHANGELOG.md' = Join-Path $repositoryDirectory 'CHANGELOG.md'
         'LICENSE' = Join-Path $repositoryDirectory 'LICENSE'
     }

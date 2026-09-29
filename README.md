@@ -213,6 +213,7 @@ The first release has not exhaustively covered:
 - `joint_pose_interpolation.h` contains the tested palette math.
 - `joint-pose-test.cpp` and `asi-load-test.cpp` provide native tests.
 - `doto-high-fps-fix.ini` is the tested default configuration.
+- `README.txt` is the plain-text end-user guide included in releases.
 - `CHANGELOG.md` records public release changes.
 - `third-party/` contains the license used by optional loader packaging; no
   loader binary is committed there.
