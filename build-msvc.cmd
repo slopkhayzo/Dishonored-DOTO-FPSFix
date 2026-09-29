@@ -33,20 +33,27 @@ if errorlevel 1 exit /b 1
 
 cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /LD /DUNICODE /D_UNICODE ^
   /Fo:"build\\" ^
-  "dinput8_proxy.cpp" ^
-  /link /DEF:"dinput8_proxy.def" /OUT:"build\dinput8.dll" ^
-  /IMPLIB:"build\dinput8_proxy.lib" bcrypt.lib
+  "doto_high_fps_fix.cpp" ^
+  /link /OUT:"build\DOTOHighFPSFix.asi" bcrypt.lib
 if errorlevel 1 exit /b 1
 
 cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /DUNICODE /D_UNICODE ^
-  /Fo:"build\proxy-smoke-test.obj" ^
-  "proxy-smoke-test.cpp" ^
-  /link /OUT:"build\proxy-smoke-test.exe" dinput8.lib dxguid.lib
+  /Fo:"build\asi-load-test.obj" ^
+  "asi-load-test.cpp" ^
+  /link /OUT:"build\asi-load-test.exe"
+if errorlevel 1 exit /b 1
+
+set "ASI_SPACE_TEST_DIR=build\ASI path with spaces"
+if not exist "!ASI_SPACE_TEST_DIR!" mkdir "!ASI_SPACE_TEST_DIR!"
+copy /y "build\DOTOHighFPSFix.asi" "!ASI_SPACE_TEST_DIR!\DOTOHighFPSFix.asi" >nul
+if errorlevel 1 exit /b 1
+
+"build\asi-load-test.exe" "!ASI_SPACE_TEST_DIR!\DOTOHighFPSFix.asi"
 if errorlevel 1 exit /b 1
 
 echo.
-echo Built DOTO high-FPS proxy:
-echo   %CD%\build\dinput8.dll
+echo Built DOTO high-FPS ASI plugin:
+echo   %CD%\build\DOTOHighFPSFix.asi
 echo   %CD%\build\joint-pose-test.exe
-echo   %CD%\build\proxy-smoke-test.exe
+echo   %CD%\build\asi-load-test.exe
 endlocal
