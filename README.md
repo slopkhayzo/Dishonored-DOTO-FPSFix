@@ -8,6 +8,7 @@
 > no major issues (on my machine ofc, if you have issues feel free to open an Issue)
 > this patch currently probably only works for the latest GOG version of the game, I do have 
 > the Steam version too but still have to test that, so no guarantees for now
+> If you're interested and want more (human generated) info, I have a blog post [here](https://slop-blog.enkhayzomachines.net/posts/dishonored-doto-high-fps-fix) :)
 
 A renderer-only high-frame-rate patch for the GOG release of *Dishonored:
 Death of the Outsider*. It unlocks presentation above 120 FPS and smooths the
