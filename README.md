@@ -17,14 +17,19 @@ animation while leaving simulation, physics, AI, scripts, animation events,
 and audio at the game's native 120 Hz, with an additional per-frame mouse delta 
 override to keep mouse input latency low.
 
-Version `1.1.0` changes delivery from the original proxy DLL to an x64 ASI
-plugin. Focused tests and multi-level live gameplay passed without a major
-issue for the camera, mouse, first-person root and skeleton, ordinary world
-roots and skeletons, small ownerless cinematic models, and the Ultimate ASI
-Loader path. See [Known limitations](#known-limitations) for paths that remain
-unsupported or less extensively tested.
+Version `1.3.0` adds an adaptive performance gate that sheds transform
+interpolation before skeletal interpolation as useful 120 Hz headroom falls,
+then restores each layer after measured recovery. Version `1.2.0` replaced the
+hard executable-SHA activation allowlist with a fail-closed structural
+compatibility preflight, and version `1.1.0` changed delivery from the original
+proxy DLL to an x64 ASI plugin. Focused tests and multi-level live gameplay
+passed without a major issue for the camera, mouse, first-person root and
+skeleton, ordinary world roots and skeletons, small ownerless cinematic
+models, adaptive transitions, and the Ultimate ASI Loader path. See
+[Known limitations](#known-limitations) for paths that remain unsupported or
+less extensively tested.
 
-## Supported game build
+## Validated game build
 
 - Store: GOG
 - Version: `1.145.0.0`
@@ -32,8 +37,15 @@ unsupported or less extensively tested.
 - Executable SHA-256:
   `DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08`
 
-Other versions and storefront builds are rejected. Hook sites are protected by
-exact byte checks in addition to the full executable hash.
+This is the only build that has been live-tested. Its SHA-256 is retained as a
+diagnostic identity, but it is no longer a hard activation allowlist. An
+unrecognized `Dishonored_DO.exe` is accepted only when it matches the mapped
+x64 PE image base, image size, entry point, section permissions and RVAs; the
+camera call still resolves to the mapped copy routine; and every enabled hook
+has its verified in-memory prologue. Per-object vtable, size, field, palette,
+and identity checks continue to fail closed while the game runs. Executables
+whose code or data layout has shifted still require a separately mapped
+compatibility profile.
 
 The tracked repository contains patch source only. It does not contain game
 assets, extracted data, reverse-engineering projects, or research dumps.
@@ -46,8 +58,13 @@ assets, extracted data, reverse-engineering projects, or research dumps.
 - Camera-aligned first-person root correction.
 - Independently gated interpolation for supported world transforms,
   first-person skeletons, world skeletons, and small cinematic models.
-- Fixed-capacity histories, identity and discontinuity checks, exact-build
-  guards, and fail-closed behavior.
+- An adaptive fixed-step cadence controller that sheds transform interpolation,
+  then skeletal interpolation, when useful 120 Hz headroom is unavailable and
+  restores them after sustained measured recovery.
+- A development-only bounded A/B harness for comparing All, Transforms only,
+  Skeletons only, and Off profiles in one session.
+- Fixed-capacity histories, identity and discontinuity checks, structural
+  compatibility guards, and fail-closed behavior.
 - A loader-neutral `DOTOHighFPSFix.asi` plugin. An external x64 ASI loader owns
   process loading and any Windows-DLL proxy forwarding.
 
@@ -58,7 +75,8 @@ physics, animators, or source palettes.
 ## Requirements
 
 - 64-bit Windows.
-- The exact GOG executable listed above.
+- `Dishonored_DO.exe` matching the mapped compatibility profile above. The
+  listed GOG build remains the only live-tested executable.
 - A compatible x64 ASI loader. The initial compatibility target is
   [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 - Visual Studio 2022 Build Tools (or Visual Studio) with **Desktop development
@@ -80,10 +98,13 @@ loader, such as the game root, `scripts`, or `plugins`:
 - `DOTOHighFPSFix.asi`
 - `doto-high-fps-fix.ini`
 
-Keep the ASI and INI together. The plugin computes the complete SHA-256 hash of
-the running executable before it installs any hooks, then validates the
-individual hook bytes. On an unsupported build it leaves the patch disabled
-and writes the reason to `doto-high-fps-fix.log` beside the ASI.
+Keep the ASI and INI together. Before writing any hook, the plugin checks the
+running executable's x64 PE layout, mapped correction RVAs and section
+permissions, camera-call relationship, and the exact in-memory prologue of
+every enabled hook. The known GOG SHA-256 is logged as diagnostic evidence but
+does not decide compatibility. On an incompatible build the plugin leaves the
+patch disabled and writes the failed invariant to `doto-high-fps-fix.log`
+beside the ASI.
 
 Some releases may additionally provide a clearly labeled archive containing
 Ultimate ASI Loader as `dinput8.dll`. Its MIT license and provenance notice are
@@ -101,8 +122,9 @@ build-msvc.cmd
 ```
 
 The script locates the Visual Studio x64 toolchain, builds and runs the native
-joint-pose tests, produces `build\DOTOHighFPSFix.asi`, and runs the ASI load
-test from the repository path.
+joint-pose and adaptive-controller tests, produces
+`build\DOTOHighFPSFix.asi`, and runs the ASI load test from the repository
+path.
 
 To repeat the ASI load test directly:
 
@@ -110,9 +132,10 @@ To repeat the ASI load test directly:
 build\asi-load-test.exe build\DOTOHighFPSFix.asi
 ```
 
-The test process is not the game, so the plugin must log an expected host-hash
-rejection. The test also verifies that the artifact has an `.asi` extension and
-does not expose the retired `DirectInput8Create` proxy export.
+The test process is not the game, so the plugin must log an expected host
+identity/PE-layout rejection. The test also verifies that the artifact has an
+`.asi` extension and does not expose the retired `DirectInput8Create` proxy
+export.
 
 After building, close the game and copy `build\DOTOHighFPSFix.asi` plus
 `doto-high-fps-fix.ini` into one loader-scanned directory. Keep both files in
@@ -121,7 +144,7 @@ the same directory.
 To reproduce the binary release archive after building and testing, run:
 
 ```powershell
-.\package-release.ps1 -Version 1.1.0
+.\package-release.ps1 -Version 1.3.0
 ```
 
 The canonical plugin-only ZIP and its SHA-256 sidecar are written to `dist\`.
@@ -129,7 +152,7 @@ To create a separate package containing an already downloaded official x64
 Ultimate ASI Loader, provide its exact version and path:
 
 ```powershell
-.\package-release.ps1 -Version 1.1.0 `
+.\package-release.ps1 -Version 1.3.0 `
   -AsiLoaderPath 'C:\path\to\dinput8.dll' `
   -AsiLoaderVersion '9.7.4'
 ```
@@ -153,6 +176,35 @@ troubleshooting, disable them one at a time in this order:
 toggles the camera prediction path for an in-game comparison. The runtime log
 is written beside the ASI as `doto-high-fps-fix.log`; diagnostics are bounded
 and useful when reporting a problem.
+
+`AdaptivePerformanceGate=1` monitors presentation cadence against the fixed
+120 Hz simulation clock in 180-tick windows. It starts with every configured
+interpolation layer eligible. Below 130 FPS it sheds transform interpolation;
+if the skeletal-only profile remains below 125 FPS it sheds skeletons too.
+Recovery uses the most recently observed local cost for each family and needs
+two consecutive windows of headroom. A substantially lighter scene can trigger
+one controlled cost-refresh probe so an old heavy-scene estimate cannot leave
+features disabled indefinitely. The controller never changes the camera,
+first-person root correction, input path, FPS unlock, simulation tick, or INI.
+Set `AdaptivePerformanceGate=0` to keep every individually configured
+interpolation layer continuously eligible.
+
+The production order is based on a same-session DOTO capture in three
+*Follow the Ink* views. Transforms were effectively free in the light view but
+cost about 0.75-0.78 ms/frame in the medium and heavy views, while skeletons
+cost about 0.59 and 0.39 ms/frame there. The resulting production ladder is
+**All -> Skeletons only -> Off**. To repeat the comparison, set
+`Diagnostics/InterpolationABProbe=1`; this suspends adaptation:
+
+- **Ctrl+F11** starts or stops a segment. It drops the first two seconds and
+  reports FPS, frame-time percentiles, fixed-step cadence, and work counters.
+- **Alt+F11** cycles All, Transforms only, Skeletons only, and Off.
+- **F11** toggles all configured interpolation against Off.
+- **Shift+F11** toggles only first-person root stabilization.
+
+F11 or Alt+F11 also establishes a process-lifetime manual override when the
+probe is off. Restart to return control to the adaptive gate. Keep
+`InterpolationABProbe=0` for ordinary play.
 
 ## Uninstall
 
@@ -185,6 +237,17 @@ packaged inputs. At the final frame-39000 diagnostic, forced-upload failures,
 skipped uploads, interpolation rejections, same-time mutations, layout
 failures, and capacity misses remained at zero.
 
+The exact `1.2.0` structural-compatibility binary also passed a focused
+in-game regression on the validated GOG build without an observed issue.
+
+The `1.3.0` adaptive controller, A/B harness, and deferred hot-path work pass
+the native `/W4`, joint-pose, adaptive-controller, and unsupported-host load
+tests. The four-profile DOTO capture completed without a safety-counter failure
+and established the transform-first shedding order. A subsequent normal-play
+regression through the three test scenes, including combat, exercised shedding,
+cost learning, and recovery without an observed safety failure or gameplay
+issue.
+
 The first release has not exhaustively covered:
 
 - the complete target-rate and variable-refresh cadence matrix;
@@ -194,7 +257,9 @@ The first release has not exhaustively covered:
 
 ## Known limitations
 
-- GOG `1.145.0.0` only.
+- Only GOG `1.145.0.0` has been live-tested. Same-layout executables may pass
+  the structural preflight, but shifted RVAs/layouts remain incompatible until
+  separately mapped and tested.
 - Shadow transform interpolation is unsupported and forced off.
 - Cloth and independently simulated dynamic vertices are not interpolated.
 - Reflections, portals, motion blur, and other secondary/temporal paths still
@@ -205,6 +270,9 @@ The first release has not exhaustively covered:
   conflict; never overwrite an existing proxy without identifying it.
 - The above-120 mode requires an external limiter and in-game Triple Buffering
   to remain disabled.
+- The transform-first adaptive ladder is based on three repeatable second-level
+  views; broader scene and long-session coverage remains pending. Use
+  `AdaptivePerformanceGate=0` if its decisions are not useful on your system.
 
 ## Source layout
 
@@ -212,7 +280,8 @@ The first release has not exhaustively covered:
 - `doto_high_fps_fix_impl.cpp` contains the shared hooks, interpolation,
   diagnostics, and exact DOTO target constants.
 - `joint_pose_interpolation.h` contains the tested palette math.
-- `joint-pose-test.cpp` and `asi-load-test.cpp` provide native tests.
+- `joint-pose-test.cpp`, `adaptive-controller-test.cpp`, and
+  `asi-load-test.cpp` provide native tests.
 - `doto-high-fps-fix.ini` is the tested default configuration.
 - `README.txt` is the plain-text end-user guide included in releases.
 - `CHANGELOG.md` records public release changes.

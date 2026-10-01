@@ -122,9 +122,9 @@ int wmain(int argumentCount, wchar_t** arguments) {
         return 12;
     }
 
-    // The installation worker rejects this test host's executable hash before
-    // touching hook sites. Keep the module loaded until process exit so the
-    // worker cannot race an unsupported FreeLibrary operation.
+    // The installation worker rejects this test host's executable identity/PE
+    // layout before touching hook sites. Keep the module loaded until process
+    // exit so the worker cannot race an unsupported FreeLibrary operation.
     std::wprintf(testThroughLoader
         ? L"External ASI loader integration and unsupported-host rejection succeeded.\n"
         : L"ASI load and unsupported-host rejection succeeded.\n");

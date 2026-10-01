@@ -31,6 +31,15 @@ if errorlevel 1 exit /b 1
 "build\joint-pose-test.exe"
 if errorlevel 1 exit /b 1
 
+cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /DUNICODE /D_UNICODE ^
+  /Fo:"build\adaptive-controller-test.obj" ^
+  "adaptive-controller-test.cpp" ^
+  /link /OUT:"build\adaptive-controller-test.exe" bcrypt.lib
+if errorlevel 1 exit /b 1
+
+"build\adaptive-controller-test.exe"
+if errorlevel 1 exit /b 1
+
 cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /LD /DUNICODE /D_UNICODE ^
   /Fo:"build\\" ^
   "doto_high_fps_fix.cpp" ^
@@ -55,5 +64,6 @@ echo.
 echo Built DOTO high-FPS ASI plugin:
 echo   %CD%\build\DOTOHighFPSFix.asi
 echo   %CD%\build\joint-pose-test.exe
+echo   %CD%\build\adaptive-controller-test.exe
 echo   %CD%\build\asi-load-test.exe
 endlocal

@@ -1,4 +1,4 @@
-Dishonored: Death of the Outsider high-FPS fix v1.1.0
+Dishonored: Death of the Outsider high-FPS fix v1.3.0
 =====================================================
 
 IMPORTANT
@@ -23,7 +23,7 @@ game's native 120 Hz. The patch changes temporary renderer-owned copies and
 palettes rather than writing interpolated values back to game entities.
 
 
-SUPPORTED GAME BUILD
+VALIDATED GAME BUILD
 --------------------
 
 Store:       GOG
@@ -31,15 +31,21 @@ Version:     1.145.0.0
 Executable:  Dishonored_DO.exe
 SHA-256:     DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08
 
-Other versions and storefront builds are rejected. The complete executable
-hash and the individual hook bytes must both match before hooks are installed.
+This is the only build that has been live-tested. Its SHA-256 is diagnostic,
+not a hard activation allowlist. An unrecognized Dishonored_DO.exe is accepted
+only if its x64 PE image layout, mapped RVAs and section permissions, camera
+call relationship, and every enabled hook signature match the verified
+profile. Shifted code or data layouts are rejected and need a separately
+mapped compatibility profile. Runtime object and palette checks remain
+fail-closed.
 
 
 REQUIREMENTS
 ------------
 
 - 64-bit Windows.
-- The exact supported GOG executable listed above.
+- Dishonored_DO.exe matching the mapped compatibility profile above. The GOG
+  build listed above remains the only live-tested executable.
 - A compatible x64 ASI loader.
 - A safe external FPS limiter such as RTSS or a driver-level limiter.
 
@@ -107,6 +113,20 @@ If troubleshooting, disable features one at a time in this order:
 ShadowTransforms is reserved and forcibly disabled for this game build.
 Press F10 in game to toggle camera prediction for comparison.
 
+AdaptivePerformanceGate=1 measures presentation cadence against the fixed
+120 Hz simulation clock. Below 130 FPS it disables transform interpolation;
+below 125 FPS with skeletons alone it disables skeletons too. It restores
+layers only after two measurement windows with enough predicted headroom. Set
+it to 0 to keep every individually enabled interpolation layer active.
+
+The All -> Skeletons only -> Off order comes from a same-session DOTO capture
+in three Follow the Ink views; transforms cost more in the medium and heavy
+scenes. For development comparisons, set InterpolationABProbe=1. Ctrl+F11 starts or
+stops a segment, Alt+F11 cycles All / Transforms only / Skeletons only / Off,
+F11 toggles all interpolation, and Shift+F11 toggles only the first-person root
+correction. Keep InterpolationABProbe=0 for ordinary play. Manual F11 or
+Alt+F11 selection suspends adaptation until the next game launch.
+
 
 UNINSTALLATION
 --------------
@@ -140,11 +160,17 @@ At the final focused ASI-loader test diagnostic, skipped uploads, failed forced
 uploads, interpolation rejections, same-time mutations, layout failures, and
 capacity misses were all zero.
 
+Version 1.3.0's adaptive controller also passed a normal-play regression
+through the three performance-test scenes, including combat. The log confirmed
+transform-first shedding, skeletal shedding and recovery, local cost learning,
+and no safety-counter failure.
+
 
 KNOWN LIMITATIONS
 -----------------
 
-- Only GOG 1.145.0.0 is currently supported.
+- Only GOG 1.145.0.0 has been live-tested. Same-layout executables may pass the
+  structural preflight; shifted layouts remain incompatible.
 - Shadow transform interpolation is unsupported and disabled.
 - Cloth and independently simulated dynamic vertices are not interpolated.
 - Reflections, portals, motion blur, and other secondary or temporal paths
@@ -152,6 +178,9 @@ KNOWN LIMITATIONS
 - Live ASI unloading is unsupported. Close the game before replacing files.
 - ASI loaders, ReShade, overlays, injectors, and other proxy DLLs may conflict.
 - Above-120 operation requires an external limiter and Triple Buffering off.
+- The transform-first adaptive order still needs broader scene and long-session
+  validation. Set AdaptivePerformanceGate=0 for continuous full configured
+  interpolation if the controller is not useful on your system.
 - The complete cadence, lifecycle, transition, long-session, and mod-
   compatibility matrices have not been exhaustively tested.
 
@@ -182,3 +211,9 @@ doto-high-fps-fix.log.
 
 The source repository contains build instructions and implementation details in
 README.md.
+
+
+Misc
+----
+
+for more game fixes take a look at https://slop-blog.enkhayzomachines.net/fixes :)
