@@ -24,6 +24,7 @@ void ResetController(bool transforms = true, bool skeletons = true) {
     g_interpolateWorldSkeletons = false;
     g_interpolateCinematicSkeletons = false;
     g_enableAdaptiveInterpolation = true;
+    g_fullInterpolationInCutscenes = false;
     g_enableInterpolationAbProbe = false;
     g_adaptiveInterpolationManualOverride.store(false,
                                                  std::memory_order_relaxed);
@@ -52,6 +53,153 @@ void EvaluateWindow(double cadenceFps) {
     context.simulationTime =
         gate.previousSimulationTime + kNativeSimulationStep;
     UpdateAdaptiveInterpolationGate(context);
+}
+
+void PresentNextFrame() {
+    PresentationContext context{};
+    context.valid = true;
+    context.serial = 3;
+    context.scaledTime =
+        g_adaptiveInterpolationGate.previousScaledTime + kNativeSimulationStep;
+    context.simulationTime =
+        g_adaptiveInterpolationGate.previousSimulationTime + kNativeSimulationStep;
+    UpdateAdaptiveInterpolationGate(context);
+}
+
+// A minimal stand-in for the executable image: a game pointer, an idGameLocal
+// whose embedded game-logic manager points back at it, and the cinematic state
+// object, all addressed relative to g_executableBase through a test profile.
+class FakeGameImage {
+public:
+    static constexpr std::uintptr_t kGamePointerRva = 0x10;
+    static constexpr std::uintptr_t kGameVtableRva = 0x20;
+    static constexpr std::uintptr_t kCinematicVtableRva = 0x30;
+    static constexpr std::uintptr_t kCinematicStateRva = 0x40;
+    static constexpr std::uintptr_t kGameRva = 0x100;
+
+    FakeGameImage() : bytes_(kGameRva + kGameLogicManagerOffset + 0x1000) {
+        layout_.name = "test";
+        layout_.gamePointerRva = kGamePointerRva;
+        layout_.gameVtableRva = kGameVtableRva;
+        layout_.cinematicGameLogicStateVtableRva = kCinematicVtableRva;
+        g_executableBase = reinterpret_cast<std::uintptr_t>(bytes_.data());
+        g_layout = &layout_;
+
+        Store(kGamePointerRva, g_executableBase + kGameRva);
+        Store(kGameRva, g_executableBase + kGameVtableRva);
+        SetOwner(g_executableBase + kGameRva);
+        Store(ManagerRva() + kGameLogicStatesOffset +
+                  kGameLogicStateCinematic * sizeof(void*),
+              g_executableBase + kCinematicStateRva);
+        SetCinematicVtable(g_executableBase + kCinematicVtableRva);
+        Store(ManagerRva() + kGameLogicStackDataOffset,
+              reinterpret_cast<std::uintptr_t>(stack_));
+    }
+
+    ~FakeGameImage() {
+        g_layout = nullptr;
+        g_executableBase = 0;
+    }
+
+    void SetStack(std::initializer_list<std::int32_t> ids) {
+        std::uint32_t count = 0;
+        for (const std::int32_t id : ids) {
+            stack_[count++] = id;
+        }
+        memcpy(bytes_.data() + ManagerRva() + kGameLogicStackCountOffset, &count,
+               sizeof(count));
+    }
+
+    void SetOwner(std::uintptr_t owner) {
+        Store(ManagerRva() + kGameLogicOwnerOffset, owner);
+    }
+
+    void SetCinematicVtable(std::uintptr_t vtable) {
+        Store(kCinematicStateRva, vtable);
+    }
+
+private:
+    static constexpr std::uintptr_t ManagerRva() {
+        return kGameRva + kGameLogicManagerOffset;
+    }
+
+    void Store(std::uintptr_t rva, std::uintptr_t value) {
+        memcpy(bytes_.data() + rva, &value, sizeof(value));
+    }
+
+    std::vector<unsigned char> bytes_;
+    LayoutProfile layout_{};
+    std::int32_t stack_[kGameLogicStackLimit]{};
+};
+
+void TestCutsceneOverride() {
+    constexpr std::int32_t kInGame = 1;
+    FakeGameImage image;
+
+    ResetController();
+    g_fullInterpolationInCutscenes = true;
+    image.SetStack({kInGame});
+    EvaluateWindow(kAdaptiveAllMinimumFps - 0.01);
+    Check(g_adaptiveInterpolationGate.mode ==
+              AdaptiveInterpolationMode::SkeletonsOnly &&
+          !RuntimeTransformInterpolationEnabled() &&
+          !g_adaptiveInterpolationGate.cutsceneOverride,
+          "Gameplay below the threshold sheds transforms before a cutscene");
+
+    image.SetStack({kInGame, kGameLogicStateCinematic});
+    PresentNextFrame();
+    Check(g_adaptiveInterpolationGate.cutsceneOverride &&
+          RuntimeTransformInterpolationEnabled() &&
+          RuntimeSkeletalInterpolationEnabled() &&
+          g_adaptiveInterpolationGate.windowFrames == 0.0,
+          "Entering the cinematic state enables every configured layer");
+
+    EvaluateWindow(60.0);
+    EvaluateWindow(60.0);
+    Check(g_adaptiveInterpolationGate.mode ==
+              AdaptiveInterpolationMode::SkeletonsOnly &&
+          RuntimeTransformInterpolationEnabled() &&
+          RuntimeSkeletalInterpolationEnabled(),
+          "Heavy cutscene cadence neither sheds layers nor changes the gameplay mode");
+
+    image.SetStack({kInGame});
+    PresentNextFrame();
+    Check(!g_adaptiveInterpolationGate.cutsceneOverride &&
+          g_adaptiveInterpolationGate.mode ==
+              AdaptiveInterpolationMode::SkeletonsOnly &&
+          !RuntimeTransformInterpolationEnabled() &&
+          RuntimeSkeletalInterpolationEnabled() &&
+          g_adaptiveInterpolationGate.windowFrames == 0.0,
+          "Leaving the cutscene restores the gameplay mode with a fresh window");
+
+    ResetController();
+    g_fullInterpolationInCutscenes = true;
+    image.SetStack({kGameLogicStateCinematic});
+    image.SetCinematicVtable(0);
+    PresentNextFrame();
+    Check(g_adaptiveInterpolationGate.cutsceneDetectionFailed &&
+          !g_adaptiveInterpolationGate.cutsceneOverride,
+          "A foreign object in the cinematic slot disables cutscene detection");
+    image.SetCinematicVtable(g_executableBase + FakeGameImage::kCinematicVtableRva);
+
+    ResetController();
+    g_fullInterpolationInCutscenes = true;
+    image.SetStack({kGameLogicStateCinematic});
+    image.SetOwner(0);
+    PresentNextFrame();
+    Check(!g_adaptiveInterpolationGate.cutsceneOverride &&
+          !g_adaptiveInterpolationGate.cutsceneDetectionFailed,
+          "A manager not owned by the game is ignored without an override");
+    image.SetOwner(g_executableBase + FakeGameImage::kGameRva);
+
+    ResetController();
+    image.SetStack({kGameLogicStateCinematic});
+    EvaluateWindow(kAdaptiveAllMinimumFps - 0.01);
+    Check(!g_adaptiveInterpolationGate.cutsceneOverride &&
+          g_adaptiveInterpolationGate.mode ==
+              AdaptiveInterpolationMode::SkeletonsOnly,
+          "FullInterpolationInCutscenes=0 lets the gate manage cutscenes");
+    g_fullInterpolationInCutscenes = false;
 }
 
 void TestThresholdBoundaries() {
@@ -213,6 +361,7 @@ int main() {
     TestRecoveryDwellAndRefresh();
     TestSuspensionAndInvalidClock();
     TestSingleFamilyConfigurations();
+    TestCutsceneOverride();
     if (g_failures != 0) {
         std::fprintf(stderr, "%d adaptive controller test(s) failed.\n",
                      g_failures);

@@ -60,10 +60,28 @@ if errorlevel 1 exit /b 1
 "build\asi-load-test.exe" "!ASI_SPACE_TEST_DIR!\DOTOHighFPSFix.asi"
 if errorlevel 1 exit /b 1
 
+if not exist "build\layout-profile-test" mkdir "build\layout-profile-test"
+cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /DUNICODE /D_UNICODE ^
+  /Fo:"build\layout-profile-test.obj" ^
+  "layout-profile-test.cpp" ^
+  /link /OUT:"build\layout-profile-test\layout-profile-test.exe" bcrypt.lib
+if errorlevel 1 exit /b 1
+
+rem Optional: validate real executables when their local paths are set.
+if defined DOTO_GOG_EXE (
+  "build\layout-profile-test\layout-profile-test.exe" "%DOTO_GOG_EXE%" "GOG 1.145.0.0"
+  if errorlevel 1 exit /b 1
+)
+if defined DOTO_STEAM_EXE (
+  "build\layout-profile-test\layout-profile-test.exe" "%DOTO_STEAM_EXE%" "Steam 1.145.0.0"
+  if errorlevel 1 exit /b 1
+)
+
 echo.
 echo Built DOTO high-FPS ASI plugin:
 echo   %CD%\build\DOTOHighFPSFix.asi
 echo   %CD%\build\joint-pose-test.exe
 echo   %CD%\build\adaptive-controller-test.exe
 echo   %CD%\build\asi-load-test.exe
+echo   %CD%\build\layout-profile-test\layout-profile-test.exe
 endlocal

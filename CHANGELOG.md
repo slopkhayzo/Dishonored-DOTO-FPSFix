@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.4.0 - 2026-10-20
+
+- Added a Steam `1.145.0.0` layout profile. The February 2025 Steam
+  executable is a newer-compiler rebuild with unchanged engine structures but
+  moved code and global data, so v1.3.0 failed closed on it. The plugin now
+  selects a GOG or Steam profile from the executable's PE image size and entry
+  point and then runs the unchanged strict preflight on that profile; the GOG
+  profile carries exactly the previous constants.
+- Fixed the preflight rejecting ASLR-relocated executables. The Steam build
+  sets `DYNAMIC_BASE`, and Windows records the actual load address in the
+  mapped header, so the header may now hold either the preferred or the actual
+  image base.
+- Added `layout-profile-test.exe`, which maps a real executable without running
+  it and validates, installs, and byte-checks every hook and trampoline on that
+  private mapping. Both the GOG and Steam executables pass.
+- Made mouse sensitivity frame-rate independent below 120 FPS as well. The
+  previous `g_fixMouseSensibility=0` path skipped the game's frame-time
+  division, so the turn per count followed each frame's tick count: stable
+  above 120 FPS but 1.5x at 80 and 2x at 60 FPS. The game's default `=1` path
+  is now kept and its clock-delta read is rewritten in place to use the
+  simulation timer's step, which cancels the view's own simulation-step
+  multiplication on every frame (ported from the Dishonored 2 high-FPS fixes).
+  Sensitivity now matches the unmodified game at 120 FPS, twice the earlier
+  high-FPS gain; users who raised it should lower it back to about half.
+- Added `FullInterpolationInCutscenes=1`. While the game-logic stack contains
+  the cinematic state, every configured interpolation layer stays enabled and
+  adaptive measurement pauses, so vehicles and parented objects are not
+  stepped in cutscenes that run below 120 FPS. The gate resumes its gameplay
+  mode afterwards. Detection reads the `idGameLocal`-embedded
+  `arkGameLogicManager` and requires the engine's own cinematic state object.
+- Live-tested the exact release binary on both builds: a Steam gameplay
+  session and a GOG gameplay session, covering cutscenes with nested
+  conversations, level transitions, and adaptive shedding and recovery. Each
+  build selected its own profile and installed every hook; cutscenes kept full
+  interpolation and returned control to the adaptive gate; skipped and failed
+  forced uploads, interpolation rejections, layout failures, and capacity
+  misses stayed at zero.
+
 ## 1.3.0 - 2026-10-01
 
 - Added an enabled-by-default adaptive performance gate driven by fixed-step

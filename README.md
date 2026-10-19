@@ -10,16 +10,19 @@
 > the Steam version too but still have to test that, so no guarantees for now
 > If you're interested and want more (human generated) info, I have a blog post [here](https://slop-blog.enkhayzomachines.net/posts/dishonored-doto-high-fps-fix) :)
 
-A renderer-only high-frame-rate patch for the GOG release of *Dishonored:
-Death of the Outsider*. It unlocks presentation above 120 FPS and smooths the
+A renderer-only high-frame-rate patch for the GOG and Steam releases of
+*Dishonored: Death of the Outsider*. It unlocks presentation above 120 FPS and smooths the
 camera, first-person models, supported world transforms, and supported skeletal
 animation while leaving simulation, physics, AI, scripts, animation events,
 and audio at the game's native 120 Hz, with an additional per-frame mouse delta 
 override to keep mouse input latency low.
 
-Version `1.3.0` adds an adaptive performance gate that sheds transform
-interpolation before skeletal interpolation as useful 120 Hz headroom falls,
-then restores each layer after measured recovery. Version `1.2.0` replaced the
+Version `1.4.0` adds the Steam build, makes mouse sensitivity frame-rate
+independent below 120 FPS as well, and keeps full interpolation during
+cutscenes. Version `1.3.0` added an adaptive performance gate that sheds
+transform interpolation before skeletal interpolation as useful 120 Hz
+headroom falls, then restores each layer after measured recovery. Version
+`1.2.0` replaced the
 hard executable-SHA activation allowlist with a fail-closed structural
 compatibility preflight, and version `1.1.0` changed delivery from the original
 proxy DLL to an x64 ASI plugin. Focused tests and multi-level live gameplay
@@ -29,23 +32,24 @@ models, adaptive transitions, and the Ultimate ASI Loader path. See
 [Known limitations](#known-limitations) for paths that remain unsupported or
 less extensively tested.
 
-## Validated game build
+## Supported game builds
 
-- Store: GOG
-- Version: `1.145.0.0`
-- Executable: `Dishonored_DO.exe`
-- Executable SHA-256:
-  `DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08`
+| Store | Version | `Dishonored_DO.exe` SHA-256 | Status |
+| --- | --- | --- | --- |
+| GOG | `1.145.0.0` | `DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08` | Live-tested across multiple levels |
+| Steam | `1.145.0.0` (February 2025 rebuild) | `BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D` | Live-tested in `1.4.0` (shorter coverage than GOG) |
 
-This is the only build that has been live-tested. Its SHA-256 is retained as a
-diagnostic identity, but it is no longer a hard activation allowlist. An
-unrecognized `Dishonored_DO.exe` is accepted only when it matches the mapped
-x64 PE image base, image size, entry point, section permissions and RVAs; the
-camera call still resolves to the mapped copy routine; and every enabled hook
-has its verified in-memory prologue. Per-object vtable, size, field, palette,
-and identity checks continue to fail closed while the game runs. Executables
-whose code or data layout has shifted still require a separately mapped
-compatibility profile.
+The Steam executable is a newer-compiler rebuild of the same game version: its
+engine structures are unchanged, but every code and global-data address moved
+and it is loaded with ASLR. The plugin therefore carries one layout profile per
+build. It selects the profile from the executable's PE image size and entry
+point, then requires that profile's section permissions and RVAs, camera-call
+relationship, vtables, and the exact in-memory prologue of every enabled hook
+before writing any patch. The SHA-256 values are logged as diagnostic
+identities, not as an activation allowlist. Per-object vtable, size, field,
+palette, and identity checks continue to fail closed while the game runs.
+Executables whose code or data layout differs from both profiles still need a
+separately mapped profile.
 
 The tracked repository contains patch source only. It does not contain game
 assets, extracted data, reverse-engineering projects, or research dumps.
@@ -53,7 +57,9 @@ assets, extracted data, reverse-engineering projects, or research dumps.
 ## Features
 
 - Presentation above 120 FPS, controlled by an external frame limiter.
-- Frame-rate-independent mouse-sensitivity branch.
+- Frame-rate-independent mouse sensitivity above and below 120 FPS: the game's
+  own look scaling divides by the simulation time step instead of the real
+  frame time.
 - Renderer-camera prediction, with an F10 comparison toggle.
 - Camera-aligned first-person root correction.
 - Independently gated interpolation for supported world transforms,
@@ -75,8 +81,8 @@ physics, animators, or source palettes.
 ## Requirements
 
 - 64-bit Windows.
-- `Dishonored_DO.exe` matching the mapped compatibility profile above. The
-  listed GOG build remains the only live-tested executable.
+- `Dishonored_DO.exe` matching one of the mapped profiles above. The GOG build
+  remains the only one live-tested in gameplay.
 - A compatible x64 ASI loader. The initial compatibility target is
   [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 - Visual Studio 2022 Build Tools (or Visual Studio) with **Desktop development
@@ -137,6 +143,19 @@ identity/PE-layout rejection. The test also verifies that the artifact has an
 `.asi` extension and does not expose the retired `DirectInput8Create` proxy
 export.
 
+The script also builds `build\layout-profile-test\layout-profile-test.exe`.
+It maps a real `Dishonored_DO.exe` into the test process without running it,
+then runs the plugin's own profile selection, strict validation, and hook
+installation against that private mapping and checks every patched entry and
+trampoline. The executable on disk is never modified. To run it from the build
+script, set the paths of the executables you have before building:
+
+```bat
+set "DOTO_GOG_EXE=C:\path\to\GOG\Dishonored_DO.exe"
+set "DOTO_STEAM_EXE=C:\path\to\Steam\Dishonored_DO.exe"
+build-msvc.cmd
+```
+
 After building, close the game and copy `build\DOTOHighFPSFix.asi` plus
 `doto-high-fps-fix.ini` into one loader-scanned directory. Keep both files in
 the same directory.
@@ -144,7 +163,7 @@ the same directory.
 To reproduce the binary release archive after building and testing, run:
 
 ```powershell
-.\package-release.ps1 -Version 1.3.0
+.\package-release.ps1 -Version 1.4.0
 ```
 
 The canonical plugin-only ZIP and its SHA-256 sidecar are written to `dist\`.
@@ -152,7 +171,7 @@ To create a separate package containing an already downloaded official x64
 Ultimate ASI Loader, provide its exact version and path:
 
 ```powershell
-.\package-release.ps1 -Version 1.3.0 `
+.\package-release.ps1 -Version 1.4.0 `
   -AsiLoaderPath 'C:\path\to\dinput8.dll' `
   -AsiLoaderVersion '9.7.4'
 ```
@@ -177,6 +196,18 @@ toggles the camera prediction path for an in-game comparison. The runtime log
 is written beside the ASI as `doto-high-fps-fix.log`; diagnostics are bounded
 and useful when reporting a problem.
 
+`StabilizeMouseSensitivity=1` keeps the game's default
+`g_fixMouseSensibility=1` look scaling, which divides the look input by a frame
+delta, and makes it read the simulation time step instead of the real frame
+time. The view later multiplies by the same simulation step, so the two cancel
+and the turn per mouse count no longer depends on the frame rate or on how many
+120 Hz ticks a frame contains. Earlier versions selected
+`g_fixMouseSensibility=0` instead, which was stable above 120 FPS but turned
+1.5x faster at 80 FPS and 2x faster at 60 FPS. Sensitivity now matches the
+unmodified game at its normal 120 FPS cap, twice the gain of those earlier
+versions; if you raised the in-game sensitivity for them, lower it back to
+about half.
+
 `AdaptivePerformanceGate=1` monitors presentation cadence against the fixed
 120 Hz simulation clock in 180-tick windows. It starts with every configured
 interpolation layer eligible. Below 130 FPS it sheds transform interpolation;
@@ -188,6 +219,15 @@ features disabled indefinitely. The controller never changes the camera,
 first-person root correction, input path, FPS unlock, simulation tick, or INI.
 Set `AdaptivePerformanceGate=0` to keep every individually configured
 interpolation layer continuously eligible.
+
+`FullInterpolationInCutscenes=1` (the default) exempts cutscenes from that
+shedding. While the game's cinematic state is active, such as during vehicle
+rides, every configured layer stays enabled even if the frame rate falls
+below 120 FPS, so vehicles and objects attached to them are not stepped, and
+cutscene frames are left out of the controller's measurements. Afterwards the
+controller resumes the mode it had chosen for gameplay. The log records each
+game-state change and the start and end of each cutscene. Set it to `0` to let
+the controller treat cutscenes like gameplay.
 
 The production order is based on a same-session DOTO capture in three
 *Follow the Ink* views. Transforms were effectively free in the light view but
@@ -248,7 +288,16 @@ regression through the three test scenes, including combat, exercised shedding,
 cost learning, and recovery without an observed safety failure or gameplay
 issue.
 
-The first release has not exhaustively covered:
+The exact `1.4.0` binary passed `/W4`, joint-pose, adaptive-controller
+(including fake-image cutscene cases), unsupported-host load, and offline
+GOG/Steam layout-profile tests, then live gameplay sessions on both the Steam
+and GOG builds. Each build selected its own profile and installed the camera,
+mouse-look, GPU-copy, and skeletal patches; several cutscenes, including
+nested conversations and level transitions, kept full interpolation and handed
+control back to the adaptive gate; skipped and failed forced uploads,
+interpolation rejections, layout failures, and capacity misses stayed at zero.
+
+The releases have not exhaustively covered:
 
 - the complete target-rate and variable-refresh cadence matrix;
 - the full gameplay, lifecycle, load/transition, and long-session matrix;
@@ -257,9 +306,9 @@ The first release has not exhaustively covered:
 
 ## Known limitations
 
-- Only GOG `1.145.0.0` has been live-tested. Same-layout executables may pass
-  the structural preflight, but shifted RVAs/layouts remain incompatible until
-  separately mapped and tested.
+- Only GOG and Steam `1.145.0.0` are supported; Steam has had a shorter live
+  test than GOG. Other executables remain incompatible unless their layout
+  matches one of the mapped profiles.
 - Shadow transform interpolation is unsupported and forced off.
 - Cloth and independently simulated dynamic vertices are not interpolated.
 - Reflections, portals, motion blur, and other secondary/temporal paths still

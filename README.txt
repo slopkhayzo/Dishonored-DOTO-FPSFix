@@ -1,4 +1,4 @@
-Dishonored: Death of the Outsider high-FPS fix v1.3.0
+Dishonored: Death of the Outsider high-FPS fix v1.4.0
 =====================================================
 
 IMPORTANT
@@ -13,39 +13,47 @@ tested across every system, level, display mode, or mod combination.
 WHAT IT DOES
 ------------
 
-This is a renderer-only high-frame-rate patch for the GOG release of
-Dishonored: Death of the Outsider. It allows presentation above 120 FPS and
-smooths the camera, mouse input, first-person models, supported world
-transforms, supported skeletal animation, and small cinematic models.
+This is a renderer-only high-frame-rate patch for the GOG and Steam releases
+of Dishonored: Death of the Outsider. It allows presentation above 120 FPS,
+keeps mouse sensitivity independent of the frame rate, and smooths the
+camera, first-person models, supported world transforms, supported skeletal
+animation, and small cinematic models.
 
 Simulation, physics, AI, scripts, animation events, and audio remain at the
 game's native 120 Hz. The patch changes temporary renderer-owned copies and
 palettes rather than writing interpolated values back to game entities.
 
 
-VALIDATED GAME BUILD
---------------------
+SUPPORTED GAME BUILDS
+---------------------
 
 Store:       GOG
 Version:     1.145.0.0
 Executable:  Dishonored_DO.exe
 SHA-256:     DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08
 
-This is the only build that has been live-tested. Its SHA-256 is diagnostic,
-not a hard activation allowlist. An unrecognized Dishonored_DO.exe is accepted
-only if its x64 PE image layout, mapped RVAs and section permissions, camera
-call relationship, and every enabled hook signature match the verified
-profile. Shifted code or data layouts are rejected and need a separately
-mapped compatibility profile. Runtime object and palette checks remain
-fail-closed.
+Store:       Steam (February 2025 update)
+Version:     1.145.0.0
+Executable:  Dishonored_DO.exe
+SHA-256:     BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D
+
+Both builds have been live-tested. The Steam executable is a rebuild of the
+same game version with every code address moved, so the patch carries a
+separate layout profile for each build and chooses it automatically.
+
+The SHA-256 values are diagnostic, not a hard activation allowlist. Before
+writing any change, the patch requires the chosen profile's x64 PE image
+layout, mapped addresses and section permissions, camera call relationship,
+and every enabled hook signature to match. Executables that match neither
+profile are rejected and leave the game unmodified. Runtime object and
+palette checks remain fail-closed.
 
 
 REQUIREMENTS
 ------------
 
 - 64-bit Windows.
-- Dishonored_DO.exe matching the mapped compatibility profile above. The GOG
-  build listed above remains the only live-tested executable.
+- One of the Dishonored_DO.exe builds listed above.
 - A compatible x64 ASI loader.
 - A safe external FPS limiter such as RTSS or a driver-level limiter.
 
@@ -113,11 +121,23 @@ If troubleshooting, disable features one at a time in this order:
 ShadowTransforms is reserved and forcibly disabled for this game build.
 Press F10 in game to toggle camera prediction for comparison.
 
+StabilizeMouseSensitivity=1 makes the turn per mouse count the same at every
+frame rate, above and below 120 FPS. Sensitivity matches the unmodified game
+at its normal 120 FPS cap. Versions before 1.4.0 had half that sensitivity
+above 120 FPS and became faster below it; if you raised the in-game
+sensitivity for an older version, lower it back to about half.
+
 AdaptivePerformanceGate=1 measures presentation cadence against the fixed
 120 Hz simulation clock. Below 130 FPS it disables transform interpolation;
 below 125 FPS with skeletons alone it disables skeletons too. It restores
 layers only after two measurement windows with enough predicted headroom. Set
 it to 0 to keep every individually enabled interpolation layer active.
+
+FullInterpolationInCutscenes=1 keeps every enabled interpolation layer active
+during cutscenes, such as vehicle rides, even below 120 FPS, so vehicles and
+objects attached to them are not stepped. The adaptive gate resumes its
+gameplay decision afterwards. Set it to 0 to let the gate manage cutscenes
+like gameplay.
 
 The All -> Skeletons only -> Off order comes from a same-session DOTO capture
 in three Follow the Ink views; transforms cost more in the medium and heavy
@@ -165,12 +185,20 @@ through the three performance-test scenes, including combat. The log confirmed
 transform-first shedding, skeletal shedding and recovery, local cost learning,
 and no safety-counter failure.
 
+Version 1.4.0 was live-tested on both the Steam and GOG builds, including
+gameplay, cutscenes with conversations, level transitions, and adaptive
+shedding and recovery. Every hook installed on both builds, cutscenes kept
+full interpolation and handed control back to the adaptive gate afterwards,
+and skipped uploads, failed forced uploads, interpolation rejections, layout
+failures, and capacity misses all remained zero.
+
 
 KNOWN LIMITATIONS
 -----------------
 
-- Only GOG 1.145.0.0 has been live-tested. Same-layout executables may pass the
-  structural preflight; shifted layouts remain incompatible.
+- Only the GOG and Steam 1.145.0.0 builds listed above are supported. Other
+  executables are rejected unless their layout matches one of them.
+- Steam has had a shorter live test than GOG.
 - Shadow transform interpolation is unsupported and disabled.
 - Cloth and independently simulated dynamic vertices are not interpolated.
 - Reflections, portals, motion blur, and other secondary or temporal paths
