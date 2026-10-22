@@ -40,6 +40,16 @@ if errorlevel 1 exit /b 1
 "build\adaptive-controller-test.exe"
 if errorlevel 1 exit /b 1
 
+if not exist "build\camera-prediction-test" mkdir "build\camera-prediction-test"
+cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /DUNICODE /D_UNICODE ^
+  /Fo:"build\camera-prediction-test.obj" ^
+  "camera-prediction-test.cpp" ^
+  /link /OUT:"build\camera-prediction-test\camera-prediction-test.exe" bcrypt.lib
+if errorlevel 1 exit /b 1
+
+"build\camera-prediction-test\camera-prediction-test.exe"
+if errorlevel 1 exit /b 1
+
 cl.exe /nologo /std:c++17 /O2 /EHsc /W4 /LD /DUNICODE /D_UNICODE ^
   /Fo:"build\\" ^
   "doto_high_fps_fix.cpp" ^
@@ -82,6 +92,7 @@ echo Built DOTO high-FPS ASI plugin:
 echo   %CD%\build\DOTOHighFPSFix.asi
 echo   %CD%\build\joint-pose-test.exe
 echo   %CD%\build\adaptive-controller-test.exe
+echo   %CD%\build\camera-prediction-test\camera-prediction-test.exe
 echo   %CD%\build\asi-load-test.exe
 echo   %CD%\build\layout-profile-test\layout-profile-test.exe
 endlocal

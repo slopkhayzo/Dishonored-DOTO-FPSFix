@@ -1,4 +1,4 @@
-Dishonored: Death of the Outsider high-FPS fix v1.4.0
+Dishonored: Death of the Outsider high-FPS fix v1.5.0
 =====================================================
 
 IMPORTANT
@@ -121,6 +121,10 @@ If troubleshooting, disable features one at a time in this order:
 ShadowTransforms is reserved and forcibly disabled for this game build.
 Press F10 in game to toggle camera prediction for comparison.
 
+RealTimeTurnPrediction=1 keeps mouse turning even at frame rates that are not
+a multiple of 120, such as 90 or 144 FPS. Ctrl+F10 switches camera rotation
+between this rule and the previous simulation-time rule for an A/B comparison.
+
 StabilizeMouseSensitivity=1 makes the turn per mouse count the same at every
 frame rate, above and below 120 FPS. Sensitivity matches the unmodified game
 at its normal 120 FPS cap. Versions before 1.4.0 had half that sensitivity
@@ -130,14 +134,23 @@ sensitivity for an older version, lower it back to about half.
 AdaptivePerformanceGate=1 measures presentation cadence against the fixed
 120 Hz simulation clock. Below 130 FPS it disables transform interpolation;
 below 125 FPS with skeletons alone it disables skeletons too. It restores
-layers only after two measurement windows with enough predicted headroom. Set
-it to 0 to keep every individually enabled interpolation layer active.
+layers only after two measurement windows with enough predicted headroom. A
+layer whose removal does not make frames faster, as under a frame cap, is
+turned back on at once and kept on. Each level load starts again with every
+layer on and is measured after a 5-second warm-up. Set it to 0 to keep every
+individually enabled interpolation layer active.
 
 FullInterpolationInCutscenes=1 keeps every enabled interpolation layer active
 during cutscenes, such as vehicle rides, even below 120 FPS, so vehicles and
 objects attached to them are not stepped. The adaptive gate resumes its
 gameplay decision afterwards. Set it to 0 to let the gate manage cutscenes
 like gameplay.
+
+FullInterpolationInSlowMotion=1 does the same while the game slows time; set
+it to 0 to let the gate manage slow motion too. During slow motion every
+layer also accepts the longer gaps between simulation samples, and ownerless
+character models are interpolated as well. TimeScaleLog=1 writes the game
+clock's slow-down settings and each slow-motion period to the log.
 
 The All -> Skeletons only -> Off order comes from a same-session DOTO capture
 in three Follow the Ink views; transforms cost more in the medium and heavy
@@ -192,6 +205,12 @@ full interpolation and handed control back to the adaptive gate afterwards,
 and skipped uploads, failed forced uploads, interpolation rejections, layout
 failures, and capacity misses all remained zero.
 
+Version 1.5.0 was played on both builds at 90 and 144 FPS caps. Mouse turning
+was even, and slow motion was detected, smoothed, and ended 17 times. The
+adaptive gate restarted at the level load and turned layers back on when
+removing them did not raise the capped frame rate. Every safety counter stayed
+clean, and there was no crash.
+
 
 KNOWN LIMITATIONS
 -----------------
@@ -209,6 +228,10 @@ KNOWN LIMITATIONS
 - The transform-first adaptive order still needs broader scene and long-session
   validation. Set AdaptivePerformanceGate=0 for continuous full configured
   interpolation if the controller is not useful on your system.
+- Below about 150 FPS, for example with a 90 or 144 FPS cap, a layer the
+  adaptive gate has turned off for a measured cost, or whose measurement a
+  kill cam or cutscene interrupted, stays off until the next level load or
+  reload. Set AdaptivePerformanceGate=0 to keep every layer on at a fixed cap.
 - The complete cadence, lifecycle, transition, long-session, and mod-
   compatibility matrices have not been exhaustively tested.
 

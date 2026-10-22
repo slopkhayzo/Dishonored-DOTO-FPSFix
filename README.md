@@ -17,8 +17,11 @@ animation while leaving simulation, physics, AI, scripts, animation events,
 and audio at the game's native 120 Hz, with an additional per-frame mouse delta 
 override to keep mouse input latency low.
 
-Version `1.4.0` adds the Steam build, makes mouse sensitivity frame-rate
-independent below 120 FPS as well, and keeps full interpolation during
+Version `1.5.0` keeps mouse turning even at frame rates that are not a
+multiple of 120, smooths slow motion, and stops the adaptive performance gate
+from leaving interpolation off after a level load or under a frame cap.
+Version `1.4.0` added the Steam build, made mouse sensitivity frame-rate
+independent below 120 FPS as well, and kept full interpolation during
 cutscenes. Version `1.3.0` added an adaptive performance gate that sheds
 transform interpolation before skeletal interpolation as useful 120 Hz
 headroom falls, then restores each layer after measured recovery. Version
@@ -37,7 +40,7 @@ less extensively tested.
 | Store | Version | `Dishonored_DO.exe` SHA-256 | Status |
 | --- | --- | --- | --- |
 | GOG | `1.145.0.0` | `DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08` | Live-tested across multiple levels |
-| Steam | `1.145.0.0` (February 2025 rebuild) | `BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D` | Live-tested in `1.4.0` (shorter coverage than GOG) |
+| Steam | `1.145.0.0` (February 2025 rebuild) | `BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D` | Live-tested in `1.4.0` and `1.5.0` (shorter coverage than GOG) |
 
 The Steam executable is a newer-compiler rebuild of the same game version: its
 engine structures are unchanged, but every code and global-data address moved
@@ -61,12 +64,16 @@ assets, extracted data, reverse-engineering projects, or research dumps.
   own look scaling divides by the simulation time step instead of the real
   frame time.
 - Renderer-camera prediction, with an F10 comparison toggle.
+- Even mouse turning at frame rates that are not a multiple of 120, such as
+  90 or 144 FPS.
 - Camera-aligned first-person root correction.
 - Independently gated interpolation for supported world transforms,
   first-person skeletons, world skeletons, and small cinematic models.
 - An adaptive fixed-step cadence controller that sheds transform interpolation,
   then skeletal interpolation, when useful 120 Hz headroom is unavailable and
   restores them after sustained measured recovery.
+- Smooth slow motion: while the game slows time, every enabled layer stays on
+  and accepts the longer gaps between simulation samples.
 - A development-only bounded A/B harness for comparing All, Transforms only,
   Skeletons only, and Off profiles in one session.
 - Fixed-capacity histories, identity and discontinuity checks, structural
@@ -128,7 +135,8 @@ build-msvc.cmd
 ```
 
 The script locates the Visual Studio x64 toolchain, builds and runs the native
-joint-pose and adaptive-controller tests, produces
+joint-pose, adaptive-controller, and camera-prediction/slow-motion tests,
+produces
 `build\DOTOHighFPSFix.asi`, and runs the ASI load test from the repository
 path.
 
@@ -163,7 +171,7 @@ the same directory.
 To reproduce the binary release archive after building and testing, run:
 
 ```powershell
-.\package-release.ps1 -Version 1.4.0
+.\package-release.ps1 -Version 1.5.0
 ```
 
 The canonical plugin-only ZIP and its SHA-256 sidecar are written to `dist\`.
@@ -171,7 +179,7 @@ To create a separate package containing an already downloaded official x64
 Ultimate ASI Loader, provide its exact version and path:
 
 ```powershell
-.\package-release.ps1 -Version 1.4.0 `
+.\package-release.ps1 -Version 1.5.0 `
   -AsiLoaderPath 'C:\path\to\dinput8.dll' `
   -AsiLoaderVersion '9.7.4'
 ```
@@ -196,6 +204,18 @@ toggles the camera prediction path for an in-game comparison. The runtime log
 is written beside the ASI as `doto-high-fps-fix.log`; diagnostics are bounded
 and useful when reporting a problem.
 
+`RealTimeTurnPrediction=1` (with `StabilizeCamera=1`) predicts camera rotation
+from the real time since the game last applied mouse look, while position
+keeps the simulation-time prediction. With the mouse fix below, the game turns
+the view once per game frame by the mouse input gathered since the previous
+one, so extrapolating that turn by simulation time made turning judder at
+frame rates that are not a multiple of 120, such as 90 or 144 FPS (a 30 Hz
+judder at 90 FPS), while walking stayed smooth. Cutscenes and menus keep the
+simulation-time rotation rule, which suits scripted cameras. **Ctrl+F10**
+switches camera rotation between the two rules for an A/B comparison of
+turning; F10 alone is unchanged. Set it to `0` to always use the
+simulation-time rule.
+
 `StabilizeMouseSensitivity=1` keeps the game's default
 `g_fixMouseSensibility=1` look scaling, which divides the look input by a frame
 delta, and makes it read the simulation time step instead of the real frame
@@ -212,6 +232,12 @@ about half.
 120 Hz simulation clock in 180-tick windows. It starts with every configured
 interpolation layer eligible. Below 130 FPS it sheds transform interpolation;
 if the skeletal-only profile remains below 125 FPS it sheds skeletons too.
+A shed that does not make frames measurably faster, as under an external
+frame cap, only costs smoothness, so it is undone at once and that layer stays
+on while the frame rate stays in the same range. Each level load restarts the
+controller with every layer on and without learned costs, and it measures the
+new level only after a 5-second warm-up, so the load's streaming hitches are
+not mistaken for interpolation cost.
 Recovery uses the most recently observed local cost for each family and needs
 two consecutive windows of headroom. A substantially lighter scene can trigger
 one controlled cost-refresh probe so an old heavy-scene estimate cannot leave
@@ -228,6 +254,25 @@ cutscene frames are left out of the controller's measurements. Afterwards the
 controller resumes the mode it had chosen for gameplay. The log records each
 game-state change and the start and end of each cutscene. Set it to `0` to let
 the controller treat cutscenes like gameplay.
+
+`FullInterpolationInSlowMotion=1` (the default) does the same while the game
+slows time. Slow motion makes the game run fewer, longer simulation ticks, so
+new states arrive less often than frames at any frame rate; that is what the
+interpolation layers smooth, but below about 130 FPS the controller would
+otherwise shed them. The plugin reads the slow-down directly from
+the engine clock, which slows two of its timers together, and logs each
+detected period. Set it to `0` to let the controller treat slow motion like
+normal play.
+
+Two slow-motion adjustments apply regardless of that setting. Every layer, the
+camera included, accepts the longer gap between simulation samples instead of
+treating it as a stall. Ownerless skinned character models are also
+interpolated while time is slowed; outside slow motion the cinematic layers
+admit only small ownerless models of at most 64 joints.
+
+`TimeScaleLog=1` logs the engine clock's time scales whenever they change and
+summarizes each detected slow-motion period, a few lines per event. Set it to
+`0` to omit these lines.
 
 The production order is based on a same-session DOTO capture in three
 *Follow the Ink* views. Transforms were effectively free in the light view but
@@ -297,6 +342,20 @@ nested conversations and level transitions, kept full interpolation and handed
 control back to the adaptive gate; skipped and failed forced uploads,
 interpolation rejections, layout failures, and capacity misses stayed at zero.
 
+The `1.5.0` turn prediction, slow-motion handling, and adaptive-gate changes
+pass `/W4`, the camera-prediction/slow-motion test, the adaptive-controller
+test (including slow-motion, turn-rule, frame-cap, and level-load cases), and
+the offline GOG/Steam layout tests. At 90 FPS the modeled mouse-turn error
+falls from 0.360 frames RMS under the previous rule to 0.000, walking is
+unchanged, and the previous rule, still used for cutscenes and menus, is
+bit-identical to `1.4.0`. A development build first handled 19 slow-motion
+periods on GOG. The exact release binary was then played on the GOG and Steam
+builds at 90 and 144 FPS caps. Slow motion was detected and ended 17 times
+(21-35% of the native tick rate), and ownerless characters were interpolated
+during it. The gate restarted at the level load and undid sheds that did not
+raise the capped frame rate. Every safety counter stayed clean, and there was
+no crash.
+
 The releases have not exhaustively covered:
 
 - the complete target-rate and variable-refresh cadence matrix;
@@ -322,6 +381,12 @@ The releases have not exhaustively covered:
 - The transform-first adaptive ladder is based on three repeatable second-level
   views; broader scene and long-session coverage remains pending. Use
   `AdaptivePerformanceGate=0` if its decisions are not useful on your system.
+- Below about 150 FPS, for example under a 90 or 144 FPS cap, the adaptive gate
+  cannot win back a layer within the same level once it has shed that layer
+  for a measured cost. The same applies when a kill cam or cutscene
+  interrupted the measurement. The layer returns at the next level load or
+  reload. Set `AdaptivePerformanceGate=0` to keep every layer on at a fixed
+  cap.
 
 ## Source layout
 
@@ -329,8 +394,9 @@ The releases have not exhaustively covered:
 - `doto_high_fps_fix_impl.cpp` contains the shared hooks, interpolation,
   diagnostics, and exact DOTO target constants.
 - `joint_pose_interpolation.h` contains the tested palette math.
-- `joint-pose-test.cpp`, `adaptive-controller-test.cpp`, and
-  `asi-load-test.cpp` provide native tests.
+- `joint-pose-test.cpp`, `adaptive-controller-test.cpp`,
+  `camera-prediction-test.cpp`, `asi-load-test.cpp`, and
+  `layout-profile-test.cpp` provide native tests.
 - `doto-high-fps-fix.ini` is the tested default configuration.
 - `README.txt` is the plain-text end-user guide included in releases.
 - `CHANGELOG.md` records public release changes.

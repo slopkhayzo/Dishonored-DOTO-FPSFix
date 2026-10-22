@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.5.0 - 2026-10-23
+
+Ports the turning and slow-motion fixes of the Dishonored 2 high-FPS fix
+v1.5.0 and fixes two ways the adaptive gate kept interpolation off. Live-tested
+on the GOG and Steam builds at 90 and 144 FPS caps.
+
+- Mouse turning is now even at frame rates that are not a multiple of 120,
+  such as 90 or 144 FPS. Since 1.4.0 the game turns the view once per game
+  frame by the mouse input gathered since the previous one, but camera
+  prediction still extrapolated that turn by simulation time, which made
+  turning judder below 120 FPS while walking stayed smooth (30 Hz at 90 FPS).
+  Added `Fix/RealTimeTurnPrediction`, default `1`: camera rotation follows the
+  real time between game frames while position keeps the simulation-time
+  prediction. Cutscenes and menus keep the previous rotation rule, which suits
+  scripted cameras. **Ctrl+F10** switches between the two rules in game; F10
+  is unchanged.
+- Slow motion is smooth. When the game slows time it runs fewer, longer
+  simulation ticks, so new states arrive less often than frames at any frame
+  rate. Added `Interpolation/FullInterpolationInSlowMotion`, default `1`: while
+  the engine clock is slowed, every enabled interpolation layer stays on even
+  if the adaptive gate would shed it, and those frames are excluded from the
+  gate's measurements.
+- During slow motion every layer, the camera included, accepts the longer gap
+  between simulation samples instead of treating it as a stall, and ownerless
+  character models are interpolated as well. Outside slow motion the cinematic
+  layers still admit only small ownerless models.
+- Added `Diagnostics/TimeScaleLog`, default `1`, which logs the engine clock's
+  time scales when they change and summarizes each slow-motion period.
+- The DOTO clock update (GOG `0x7E730`, Steam `0x5A790`) was verified to use
+  the same time-scale fields as Dishonored 2's, and the game-logic `in-game`
+  state id (`1`) was read from the engine's own enum table on both builds.
+- Added `camera-prediction-test.exe` and slow-motion and turn-rule cases to
+  the adaptive-controller test.
+- The adaptive gate no longer switches interpolation off for good after a
+  level load or under a frame cap. Both live sessions of this port loaded
+  straight into gameplay, and the first windows after the load (about 80 FPS
+  while the level streamed in) made the gate shed every layer and learn costs
+  of 2.0-4.4 ms per family that then blocked recovery. Under a 90 FPS cap,
+  shedding cannot raise the frame rate, so the learned cost was zero and the
+  layers stayed off. Now each level load restarts the gate with every layer on
+  and no learned costs and measures only after a 5-second warm-up. A shed that
+  changes the frame time by less than 2.5% is undone at once, and that layer
+  is not shed again while the frame time stays within 15% of where it proved
+  free.
+- Live-tested the exact release binary on both builds through Ultimate ASI
+  Loader 9.7.4, with caps of 90 and 144 FPS: a GOG session and a Steam
+  session, each loading straight into gameplay. Each build selected its own
+  profile and installed every hook. Slow motion was detected and ended 10
+  times on Steam and 7 times on GOG (down to 21-35% of the native tick rate),
+  with ownerless characters interpolated during it. Level-load restarts and
+  undone sheds appeared as intended. Skipped and failed forced uploads,
+  interpolation rejections, layout failures, same-time mutations, and
+  capacity misses stayed at zero. There was no crash.
+
 ## 1.4.0 - 2026-10-20
 
 - Added a Steam `1.145.0.0` layout profile. The February 2025 Steam

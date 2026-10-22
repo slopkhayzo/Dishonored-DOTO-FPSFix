@@ -90,6 +90,8 @@ int wmain(int argumentCount, wchar_t** arguments) {
     g_interpolateCinematicSkeletons = true;
     g_enableAdaptiveInterpolation = true;
     g_fullInterpolationInCutscenes = true;
+    g_fullInterpolationInSlowMotion = true;
+    g_realTimeTurnPrediction = true;
 
     PeImageLayout layout{};
     if (!ValidatePeImageLayout(layout) || !ValidateConfiguredCorrectionPaths(layout)) {
