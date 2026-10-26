@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.5.1 - 2026-10-26
+
+Ports the first-person attachment fix of the Dishonored 2 high-FPS fix
+v1.5.1. Live-tested on the GOG and Steam builds. There are no new settings,
+and an existing `doto-high-fps-fix.ini` from 1.5.0 can be kept.
+
+- The held weapon is now smooth while it moves relative to the camera, for
+  example while it is drawn or holstered behind the power wheel. First-person
+  models were only moved with the smoothed camera, so their own motion
+  relative to it, such as a weapon carried by the animated hand, still stepped
+  at the simulation rate. This was barely visible at normal speed but obvious
+  while time is slowed, where the fingers also seemed to snap against the
+  stepped grip. That motion is now interpolated at the same presentation time
+  as the hand animation. Models fixed to the camera keep exactly the previous
+  correction. This is part of `FirstPersonSkeletons` and runs whenever the
+  first-person hand animation is interpolated.
+- Unlike Dishonored 2, DOTO draws several new short-lived first-person models
+  every frame during some effects, such as Foresight. They are not
+  interpolated, but they must not use up the room for the models that are, so
+  a first-person track is reused 4 frames after its model was last drawn, and
+  there is room for 128. Without that, a weapon drawn during or shortly after
+  Foresight would have stepped as before for several seconds.
+- World objects no longer pause briefly within each step of deep slow motion.
+  Their extrapolation limit was a fixed 8.3 ms instead of one step of the
+  slowed clock. Normal speed is unchanged.
+- The log adds a periodic "First-person transform" diagnostics line.
+- `camera-prediction-test.exe` adds a first-person attachment that moves
+  relative to a moving camera at 60-360 FPS and simulation speeds down to 5%,
+  and a burst of short-lived first-person models. Built with the previous
+  track limits, that burst case fails exactly as the live game did.
+- Live-tested the exact release binary through Ultimate ASI Loader 9.7.4 on
+  GOG (including Foresight) and Steam, with the power wheel opened while the
+  weapon was drawn or holstered. The weapon stayed smooth. Slow motion was
+  detected and ended 23 times. First-person tracks, skeletal uploads, and
+  world transforms had no capacity misses, skipped or failed uploads, or
+  interpolation rejections, and there was no crash.
+
 ## 1.5.0 - 2026-10-23
 
 Ports the turning and slow-motion fixes of the Dishonored 2 high-FPS fix

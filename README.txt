@@ -1,4 +1,4 @@
-Dishonored: Death of the Outsider high-FPS fix v1.5.0
+Dishonored: Death of the Outsider high-FPS fix v1.5.1
 =====================================================
 
 IMPORTANT
@@ -121,6 +121,11 @@ If troubleshooting, disable features one at a time in this order:
 ShadowTransforms is reserved and forcibly disabled for this game build.
 Press F10 in game to toggle camera prediction for comparison.
 
+FirstPersonSkeletons also smooths first-person models that move relative to
+the camera, such as the held weapon while it is drawn or holstered. Without
+it, the weapon steps at the simulation rate, which is most visible while time
+is slowed, for example in the power wheel.
+
 RealTimeTurnPrediction=1 keeps mouse turning even at frame rates that are not
 a multiple of 120, such as 90 or 144 FPS. Ctrl+F10 switches camera rotation
 between this rule and the previous simulation-time rule for an A/B comparison.
@@ -210,6 +215,11 @@ was even, and slow motion was detected, smoothed, and ended 17 times. The
 adaptive gate restarted at the level load and turned layers back on when
 removing them did not raise the capped frame rate. Every safety counter stayed
 clean, and there was no crash.
+
+Version 1.5.1 was played on both builds with the power wheel opened while the
+weapon was drawn or holstered, and with Foresight on GOG. The weapon stayed
+smooth, slow motion was detected and ended 23 times, every safety counter
+stayed clean, and there was no crash.
 
 
 KNOWN LIMITATIONS

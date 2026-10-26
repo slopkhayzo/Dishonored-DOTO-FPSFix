@@ -17,6 +17,8 @@ animation while leaving simulation, physics, AI, scripts, animation events,
 and audio at the game's native 120 Hz, with an additional per-frame mouse delta 
 override to keep mouse input latency low.
 
+Version `1.5.1` smooths the held weapon while it moves relative to the camera,
+which stepped visibly while time is slowed, for example in the power wheel.
 Version `1.5.0` keeps mouse turning even at frame rates that are not a
 multiple of 120, smooths slow motion, and stops the adaptive performance gate
 from leaving interpolation off after a level load or under a frame cap.
@@ -40,7 +42,7 @@ less extensively tested.
 | Store | Version | `Dishonored_DO.exe` SHA-256 | Status |
 | --- | --- | --- | --- |
 | GOG | `1.145.0.0` | `DA7E8EB3FDFA28BF552079B37F626A009F35941D9EEB015BA61AC9BFCD850C08` | Live-tested across multiple levels |
-| Steam | `1.145.0.0` (February 2025 rebuild) | `BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D` | Live-tested in `1.4.0` and `1.5.0` (shorter coverage than GOG) |
+| Steam | `1.145.0.0` (February 2025 rebuild) | `BE73D979FDB5A6EACBCD385944C6060B97C997D06AB9D72FB39F275A866B955D` | Live-tested in `1.4.0`, `1.5.0`, and `1.5.1` (shorter coverage than GOG) |
 
 The Steam executable is a newer-compiler rebuild of the same game version: its
 engine structures are unchanged, but every code and global-data address moved
@@ -171,7 +173,7 @@ the same directory.
 To reproduce the binary release archive after building and testing, run:
 
 ```powershell
-.\package-release.ps1 -Version 1.5.0
+.\package-release.ps1 -Version 1.5.1
 ```
 
 The canonical plugin-only ZIP and its SHA-256 sidecar are written to `dist\`.
@@ -179,7 +181,7 @@ To create a separate package containing an already downloaded official x64
 Ultimate ASI Loader, provide its exact version and path:
 
 ```powershell
-.\package-release.ps1 -Version 1.5.0 `
+.\package-release.ps1 -Version 1.5.1 `
   -AsiLoaderPath 'C:\path\to\dinput8.dll' `
   -AsiLoaderVersion '9.7.4'
 ```
@@ -198,6 +200,14 @@ Buffering before launching. Every layer remains independently configurable; if
 troubleshooting, disable them one at a time in this order:
 `CinematicSkeletons`, `CinematicTransforms`, `FirstPersonSkeletons`,
 `WorldSkeletons`, `WorldTransforms`, then `StabilizeFirstPersonHands`.
+
+`FirstPersonSkeletons` also covers first-person models that move relative to
+the camera, such as the held weapon following the animated hand. Their motion
+relative to the camera is interpolated at the same presentation time as the
+hand animation and placed under the smoothed camera. Without this, a weapon
+steps at the simulation rate, which is most visible while time is slowed, for
+example in the power wheel. Models fixed to the camera keep the plain
+`StabilizeFirstPersonHands` correction.
 
 `ShadowTransforms` is reserved and forcibly disabled in this DOTO build. F10
 toggles the camera prediction path for an in-game comparison. The runtime log
@@ -355,6 +365,19 @@ builds at 90 and 144 FPS caps. Slow motion was detected and ended 17 times
 during it. The gate restarted at the level load and undid sheds that did not
 raise the capped frame rate. Every safety counter stayed clean, and there was
 no crash.
+
+The `1.5.1` first-person attachment interpolation passes `/W4` and the
+camera-prediction test, which now drives a moving attachment under a moving
+camera at 60-360 FPS and simulation speeds down to 5% (0.000 frames RMS at
+90 FPS and 5%). A burst of short-lived first-person models in that test fails
+with the previous track limits and passes with the new ones. The first
+development build was smooth in the power wheel on GOG, but Foresight filled
+its first-person track table. The exact release binary was then played on
+GOG (including Foresight) and Steam with the power wheel opened while the
+weapon was drawn or holstered. The weapon stayed smooth. Slow motion was
+detected and ended 23 times. First-person, skeletal, and world capacity
+misses, skipped and failed uploads, and interpolation rejections stayed at
+zero, and there was no crash.
 
 The releases have not exhaustively covered:
 
