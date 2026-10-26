@@ -96,7 +96,11 @@ function Write-ReleaseArchive {
         Remove-Item -LiteralPath $archiveHashPath -Force
     }
 
-    Compress-Archive -LiteralPath $PayloadDirectory -DestinationPath $ArchivePath `
+    # Store the files at the archive root, without the payload folder, so the
+    # ZIP can be extracted directly into the game folder.
+    $payloadFiles = @(Get-ChildItem -LiteralPath $PayloadDirectory -File |
+        ForEach-Object FullName)
+    Compress-Archive -LiteralPath $payloadFiles -DestinationPath $ArchivePath `
         -CompressionLevel Optimal
 
     $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ArchivePath).Hash

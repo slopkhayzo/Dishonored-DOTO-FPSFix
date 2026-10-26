@@ -103,12 +103,15 @@ above-120 unlock. Always set a sensible external cap before launching the game.
 
 ## Install a release
 
-Download and extract the release. Close the game before changing the plugin or
-loader.
+Close the game before changing the plugin or loader. Each release ZIP holds its
+files at the top level, with no enclosing folder, so it can be extracted
+directly into the game folder beside `Dishonored_DO.exe`. Extracting over an
+older release replaces `doto-high-fps-fix.ini`.
 
 For a plugin-only release, first install a compatible x64 ASI loader according
-to its own documentation. Then copy these files to a directory scanned by that
-loader, such as the game root, `scripts`, or `plugins`:
+to its own documentation. Then extract the ZIP into the game folder, or copy
+these files to another directory scanned by that loader, such as `scripts` or
+`plugins`:
 
 - `DOTOHighFPSFix.asi`
 - `doto-high-fps-fix.ini`
@@ -177,6 +180,8 @@ To reproduce the binary release archive after building and testing, run:
 ```
 
 The canonical plugin-only ZIP and its SHA-256 sidecar are written to `dist\`.
+Every release ZIP stores its files at the archive root, without a versioned
+folder, so users can extract it straight into the game folder.
 To create a separate package containing an already downloaded official x64
 Ultimate ASI Loader, provide its exact version and path:
 
@@ -305,7 +310,9 @@ probe is off. Restart to return control to the adaptive gate. Keep
 
 Close the game and delete `DOTOHighFPSFix.asi` and the adjacent
 `doto-high-fps-fix.ini`. The generated `doto-high-fps-fix.log` can also be
-deleted.
+deleted, as can the documentation extracted with the release: `README.txt`,
+`CHANGELOG.md`, `LICENSE`, `SHA256SUMS.txt`, and, from the loader package,
+`Ultimate-ASI-Loader.txt` and `Ultimate-ASI-Loader-LICENSE.txt`.
 
 Do not remove an external ASI loader if another mod may use it. If this mod's
 optional loader package installed `dinput8.dll`, compare it with the packaged

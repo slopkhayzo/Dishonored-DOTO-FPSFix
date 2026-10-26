@@ -25,6 +25,8 @@ and an existing `doto-high-fps-fix.ini` from 1.5.0 can be kept.
 - World objects no longer pause briefly within each step of deep slow motion.
   Their extrapolation limit was a fixed 8.3 ms instead of one step of the
   slowed clock. Normal speed is unchanged.
+- The release ZIPs now hold their files at the top level instead of inside a
+  versioned folder, so a ZIP can be extracted straight into the game folder.
 - The log adds a periodic "First-person transform" diagnostics line.
 - `camera-prediction-test.exe` adds a first-person attachment that moves
   relative to a moving camera at 60-360 FPS and simulation speeds down to 5%,

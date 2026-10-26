@@ -69,8 +69,11 @@ Use the release whose filename ends with:
   -with-Ultimate-ASI-Loader.zip
 
 1. Close the game.
-2. Open the extracted release folder.
-3. Copy its contents into the game directory beside Dishonored_DO.exe.
+2. If the game directory already contains dinput8.dll, read the note below
+   first.
+3. Extract the ZIP directly into the game directory, beside
+   Dishonored_DO.exe. The files are at the top level of the ZIP, so there is
+   no folder to open or move.
 
 The three important runtime files are:
 
@@ -89,8 +92,9 @@ INSTALLATION: PLUGIN-ONLY PACKAGE
 The smaller release does not contain an ASI loader. Use it only when a
 compatible x64 ASI loader is already installed.
 
-Copy these two files into a directory scanned by the loader, such as the game
-root, scripts, or plugins:
+Extract the ZIP directly into the game directory, beside Dishonored_DO.exe.
+To use another directory scanned by the loader, such as scripts or plugins,
+copy these two files there instead:
 
   DOTOHighFPSFix.asi
   doto-high-fps-fix.ini
@@ -107,7 +111,9 @@ CONFIGURATION AND USE
 ---------------------
 
 Edit doto-high-fps-fix.ini while the game is closed. The tested renderer
-interpolation features are enabled by default in v1.1.0.
+interpolation features are enabled by default in v1.1.0. Extracting a new
+release over an older one replaces this file, so note any setting you changed
+first.
 
 If troubleshooting, disable features one at a time in this order:
 
@@ -174,6 +180,10 @@ Close the game and remove:
   DOTOHighFPSFix.asi
   doto-high-fps-fix.ini
   doto-high-fps-fix.log     optional generated log
+
+The documentation extracted with the release can also be removed: README.txt,
+CHANGELOG.md, LICENSE, and SHA256SUMS.txt, plus Ultimate-ASI-Loader.txt and
+Ultimate-ASI-Loader-LICENSE.txt from the loader package.
 
 Do not remove dinput8.dll if another mod uses the ASI loader. If this package
 installed it, compare its hash with SHA256SUMS.txt and check for other ASI
